@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Net.Http.Formatting;
 using System.Threading.Tasks;
+using jnonce.PipelineBuilder.Http;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace jnonce.PipelineBuilder.Tests
@@ -88,6 +91,24 @@ namespace jnonce.PipelineBuilder.Tests
 
             int result1 = xxx("hi");
             Assert.AreEqual(result, result1);
+        }
+
+        [TestMethod]
+        public async Task Append()
+        {
+            var stream = new MemoryStream();
+            var pipe = PipelineBuilder.Create(
+                (LogMessage message) => Task.FromResult(message),
+                builder =>
+                {
+                    builder.WriteTo(stream, new JsonMediaTypeFormatter());
+                });
+
+            await pipe(new ErrorMessage { CorrelationVector = "e", Code = 44 });
+
+            stream.Seek(0, SeekOrigin.Begin);
+            var reader = new StreamReader(stream);
+            string text = await reader.ReadToEndAsync();
         }
     }
 

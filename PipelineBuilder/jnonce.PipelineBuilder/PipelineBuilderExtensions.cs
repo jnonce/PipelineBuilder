@@ -23,6 +23,61 @@ namespace jnonce.PipelineBuilder
             builder.Use(next => input => handler(input, next));
         }
 
+        public static void Use<TInput, TOutput, TInput2, TOutput2>(
+            this IPipelineBuilder<TInput, TOutput> builder,
+            Func<Func<TInput2, TOutput2>, Func<TInput2, TOutput2>> nestedHandler,
+            Func<TInput, TInput2> convertToNestedInput,
+            Func<TInput2, TInput> convertToNextInput,
+            Func<TOutput, TOutput2> convertFromNextOutput,
+            Func<TOutput2, TOutput> convertFromNestedResponse)
+        {
+            builder.Use(next =>
+            {
+                var nestedPipeline = nestedHandler(passedOutInput =>
+                {
+                    var convertedInput = convertToNextInput(passedOutInput);
+                    var nextHandlerOutput = next(convertedInput);
+                    var outputForNestedHandler = convertFromNextOutput(nextHandlerOutput);
+                    return outputForNestedHandler;
+                });
+
+                return input =>
+                {
+                    var convertedInput = convertToNestedInput(input);
+                    var nestedPipelineOutput = nestedPipeline(convertedInput);
+                    var outputForHandler = convertFromNestedResponse(nestedPipelineOutput);
+                    return outputForHandler;
+                };
+            });
+        }
+
+        public static void UseAsync<TInput, TOutput, TInput2, TOutput2>(
+            this IPipelineBuilder<TInput, Task<TOutput>> builder,
+            Func<Func<TInput2, Task<TOutput2>>, Func<TInput2, Task<TOutput2>>> nestedHandler,
+            Func<TInput, Task<TInput2>> convertToNestedInput,
+            Func<TInput2, Task<TInput>> convertToNextInput,
+            Func<TOutput, Task<TOutput2>> convertFromNextOutput,
+            Func<TOutput2, Task<TOutput>> convertFromNestedResponse)
+        {
+            builder.Use(next =>
+            {
+                var nestedPipeline = nestedHandler(async passedOutInput =>
+                {
+                    var convertedInput = await convertToNextInput(passedOutInput);
+                    var nextHandlerOutput = await next(convertedInput);
+                    var outputForNestedHandler = await convertFromNextOutput(nextHandlerOutput);
+                    return outputForNestedHandler;
+                });
+
+                return async input =>
+                {
+                    var convertedInput = await convertToNestedInput(input);
+                    var nestedPipelineOutput = await nestedPipeline(convertedInput);
+                    var outputForHandler = await convertFromNestedResponse(nestedPipelineOutput);
+                    return outputForHandler;
+                };
+            });
+        }
         #endregion
 
         #region Run

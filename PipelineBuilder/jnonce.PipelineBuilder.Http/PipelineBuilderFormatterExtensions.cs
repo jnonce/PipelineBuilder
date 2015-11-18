@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Net.Http.Formatting;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace jnonce.PipelineBuilder.Http
@@ -41,6 +40,5 @@ namespace jnonce.PipelineBuilder.Http
                 input => formatter.WriteToStreamAsync(type, input, stream, null, null)
                 );
         }
-
     }
 }

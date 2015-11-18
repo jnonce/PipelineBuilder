@@ -23,7 +23,27 @@ namespace jnonce.PipelineBuilder
             builder.Use(next => input => handler(input, next));
         }
 
-        public static void Use<TInput, TOutput, TInput2, TOutput2>(
+        #endregion
+
+        #region UseNested
+
+        public static void UseNested<TInput, TOutput, TInput2, TOutput2>(
+            this IPipelineBuilder<TInput, TOutput> builder,
+            Func<TInput, TInput2> convertToNestedInput,
+            Func<TInput2, TInput> convertToNextInput,
+            Func<TOutput, TOutput2> convertFromNextOutput,
+            Func<TOutput2, TOutput> convertFromNestedResponse,
+            Action<IPipelineBuilder<TInput2, TOutput2>> handler)
+        {
+            builder.UseNested(
+                builder.New(handler),
+                convertToNestedInput,
+                convertToNextInput,
+                convertFromNextOutput, 
+                convertFromNestedResponse);
+        }
+
+        public static void UseNested<TInput, TOutput, TInput2, TOutput2>(
             this IPipelineBuilder<TInput, TOutput> builder,
             Func<Func<TInput2, TOutput2>, Func<TInput2, TOutput2>> nestedHandler,
             Func<TInput, TInput2> convertToNestedInput,
@@ -51,7 +71,7 @@ namespace jnonce.PipelineBuilder
             });
         }
 
-        public static void UseAsync<TInput, TOutput, TInput2, TOutput2>(
+        public static void UseNestedAsync<TInput, TOutput, TInput2, TOutput2>(
             this IPipelineBuilder<TInput, Task<TOutput>> builder,
             Func<Func<TInput2, Task<TOutput2>>, Func<TInput2, Task<TOutput2>>> nestedHandler,
             Func<TInput, Task<TInput2>> convertToNestedInput,
@@ -78,6 +98,23 @@ namespace jnonce.PipelineBuilder
                 };
             });
         }
+
+        public static void UseNestedAsync<TInput, TOutput, TInput2, TOutput2>(
+            this IPipelineBuilder<TInput, Task<TOutput>> builder,
+            Func<TInput, Task<TInput2>> convertToNestedInput,
+            Func<TInput2, Task<TInput>> convertToNextInput,
+            Func<TOutput, Task<TOutput2>> convertFromNextOutput,
+            Func<TOutput2, Task<TOutput>> convertFromNestedResponse,
+            Action<IPipelineBuilder<TInput2, Task<TOutput2>>> handler)
+        {
+            builder.UseNestedAsync(
+                builder.New(handler),
+                convertToNestedInput,
+                convertToNextInput,
+                convertFromNextOutput,
+                convertFromNestedResponse);
+        }
+
         #endregion
 
         #region Run

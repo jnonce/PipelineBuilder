@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -39,7 +40,7 @@ namespace jnonce.PipelineBuilder
                 builder.New(handler),
                 convertToNestedInput,
                 convertToNextInput,
-                convertFromNextOutput, 
+                convertFromNextOutput,
                 convertFromNestedResponse);
         }
 
@@ -496,6 +497,50 @@ namespace jnonce.PipelineBuilder
                         : tailMethods[clause.Value];
 
                     return await method(input);
+                };
+            });
+        }
+
+        #endregion
+
+        #region
+
+        public static void Fork<TInput, TOutput>(
+            this IPipelineBuilder<TInput, TOutput> builder,
+            Func<TInput, TOutput[], TOutput> choose,
+            params Action<IPipelineBuilder<TInput, TOutput>>[] handlers)
+        {
+            var nestedPipelines = handlers.Select(builder.New).ToArray();
+
+            builder.Use(next =>
+            {
+                var chain = nestedPipelines.Select(nestedPipeline => nestedPipeline(next)).ToArray();
+
+                return input =>
+                {
+                    var results = chain.Select(f => f(input)).ToArray();
+                    return choose(input, results);
+                };
+            });
+        }
+
+        public static void ForkAsync<TInput, TOutput>(
+            this IPipelineBuilder<TInput, Task<TOutput>> builder,
+            Func<TInput, TOutput[], Task<TOutput>> choose,
+            params Action<IPipelineBuilder<TInput, Task<TOutput>>>[] handlers)
+        {
+            var nestedPipelines = handlers.Select(builder.New).ToArray();
+
+            builder.Use(next =>
+            {
+                var chain = nestedPipelines.Select(nestedPipeline => nestedPipeline(next)).ToArray();
+
+                return async input =>
+                {
+                    var results = await Task.WhenAll(
+                        chain.Select(f => f(input))
+                        );
+                    return await choose(input, results);
                 };
             });
         }

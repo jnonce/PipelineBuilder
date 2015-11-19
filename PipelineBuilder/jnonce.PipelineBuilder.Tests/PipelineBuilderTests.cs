@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http.Formatting;
+using System.Threading;
 using System.Threading.Tasks;
 using jnonce.PipelineBuilder.Http;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -109,6 +110,45 @@ namespace jnonce.PipelineBuilder.Tests
             stream.Seek(0, SeekOrigin.Begin);
             var reader = new StreamReader(stream);
             string text = await reader.ReadToEndAsync();
+        }
+
+        [TestMethod]
+        public async Task ForkAsync()
+        {
+            var s1 = new SemaphoreSlim(0);
+            var s2 = new SemaphoreSlim(0);
+            var processingComplete = new SemaphoreSlim(0);
+
+            var pipe = PipelineBuilder.Create(
+                (LogMessage message) => Task.FromResult(message),
+                builder =>
+                {
+                    builder.ForkAsync((input, tasks) => Task.FromResult(tasks[0]),
+                        fork1 =>
+                        {
+                            fork1.Process(async _ =>
+                            {
+                                s2.Release();
+                                await s1.WaitAsync();
+                            });
+                        },
+                        fork2 =>
+                        {
+                            fork2.Process(async _ =>
+                            {
+                                s1.Release();
+                                await s2.WaitAsync();
+                            });
+                        });
+                    builder.Process(message =>
+                    {
+                        processingComplete.Release();
+                    });
+                });
+
+            await pipe(new LogMessage());
+            await processingComplete.WaitAsync();
+            await processingComplete.WaitAsync();
         }
     }
 

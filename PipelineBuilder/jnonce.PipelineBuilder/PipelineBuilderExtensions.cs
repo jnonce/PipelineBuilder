@@ -514,13 +514,31 @@ namespace jnonce.PipelineBuilder
         /// <param name="choose">Chooses the final result</param>
         /// <param name="handlers"></param>
         public static void InParallel<TInput, TOutput>(
-            this IPipelineBuilder<TInput, Task<TOutput>> builder,
-            Func<TInput, Func<TInput, Task<TOutput>[]>, Task<TOutput>> choose,
-            Action<IPipelineBuilder<TInput, Task<TOutput>>> handlers)
+            this IPipelineBuilder<TInput, TOutput> builder,
+            Func<TInput, Func<TInput, TOutput[]>, TOutput> choose,
+            Action<IPipelineBuilder<TInput, TOutput>> handlers)
+            where TOutput : Task
         {
             var parallelPipelineBuilder = new ParallelPipelineBuilder<TInput, TOutput>(choose);
             handlers(parallelPipelineBuilder);
             builder.Use(parallelPipelineBuilder.BindInnerPipeline);
+        }
+
+        /// <summary>
+        /// Appends a handler onto the pipeline which forks the request and runs a series of parallel operations.
+        /// </summary>
+        /// <typeparam name="TInput"></typeparam>
+        /// <typeparam name="TOutput"></typeparam>
+        /// <param name="builder"></param>
+        /// <param name="choose">Chooses the final result</param>
+        /// <param name="handlers"></param>
+        public static void InParallel<TInput>(
+            this IPipelineBuilder<TInput, Task> builder,
+            Action<IPipelineBuilder<TInput, Task>> handlers)
+        {
+            builder.InParallel(
+                (input, chain) => Task.WhenAll(chain(input)),
+                handlers);
         }
 
 

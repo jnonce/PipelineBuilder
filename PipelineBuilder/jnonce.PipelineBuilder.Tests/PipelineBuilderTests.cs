@@ -113,7 +113,7 @@ namespace jnonce.PipelineBuilder.Tests
         }
 
         [TestMethod]
-        public async Task ForkAsync()
+        public async Task InParallel()
         {
             var s1 = new SemaphoreSlim(0);
             var s2 = new SemaphoreSlim(0);
@@ -123,23 +123,23 @@ namespace jnonce.PipelineBuilder.Tests
                 (LogMessage message) => Task.FromResult(message),
                 builder =>
                 {
-                    builder.ForkAsync((input, tasks) => Task.FromResult(tasks[0]),
-                        fork1 =>
+                    builder.InParallel(
+                        (input, parallelOps) => parallelOps(input)[0],
+                        forks =>
                         {
-                            fork1.Process(async _ =>
+                            forks.Process(async _ =>
                             {
                                 s2.Release();
                                 await s1.WaitAsync();
                             });
-                        },
-                        fork2 =>
-                        {
-                            fork2.Process(async _ =>
+
+                            forks.Process(async _ =>
                             {
                                 s1.Release();
                                 await s2.WaitAsync();
                             });
                         });
+
                     builder.Process(message =>
                     {
                         processingComplete.Release();

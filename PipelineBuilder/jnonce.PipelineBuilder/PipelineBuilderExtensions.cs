@@ -503,47 +503,26 @@ namespace jnonce.PipelineBuilder
 
         #endregion
 
-        #region
+        #region InParallel
 
-        public static void Fork<TInput, TOutput>(
-            this IPipelineBuilder<TInput, TOutput> builder,
-            Func<TInput, TOutput[], TOutput> choose,
-            params Action<IPipelineBuilder<TInput, TOutput>>[] handlers)
-        {
-            var nestedPipelines = handlers.Select(builder.New).ToArray();
-
-            builder.Use(next =>
-            {
-                var chain = nestedPipelines.Select(nestedPipeline => nestedPipeline(next)).ToArray();
-
-                return input =>
-                {
-                    var results = chain.Select(f => f(input)).ToArray();
-                    return choose(input, results);
-                };
-            });
-        }
-
-        public static void ForkAsync<TInput, TOutput>(
+        /// <summary>
+        /// Appends a handler onto the pipeline which forks the request and runs a series of parallel operations.
+        /// </summary>
+        /// <typeparam name="TInput"></typeparam>
+        /// <typeparam name="TOutput"></typeparam>
+        /// <param name="builder"></param>
+        /// <param name="choose">Chooses the final result</param>
+        /// <param name="handlers"></param>
+        public static void InParallel<TInput, TOutput>(
             this IPipelineBuilder<TInput, Task<TOutput>> builder,
-            Func<TInput, TOutput[], Task<TOutput>> choose,
-            params Action<IPipelineBuilder<TInput, Task<TOutput>>>[] handlers)
+            Func<TInput, Func<TInput, Task<TOutput>[]>, Task<TOutput>> choose,
+            Action<IPipelineBuilder<TInput, Task<TOutput>>> handlers)
         {
-            var nestedPipelines = handlers.Select(builder.New).ToArray();
-
-            builder.Use(next =>
-            {
-                var chain = nestedPipelines.Select(nestedPipeline => nestedPipeline(next)).ToArray();
-
-                return async input =>
-                {
-                    var results = await Task.WhenAll(
-                        chain.Select(f => f(input))
-                        );
-                    return await choose(input, results);
-                };
-            });
+            var parallelPipelineBuilder = new ParallelPipelineBuilder<TInput, TOutput>(choose);
+            handlers(parallelPipelineBuilder);
+            builder.Use(parallelPipelineBuilder.BindInnerPipeline);
         }
+
 
         #endregion
 
